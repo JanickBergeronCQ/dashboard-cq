@@ -14,12 +14,13 @@ describe("Employee dashboard", () => {
       "aria-pressed",
       "true"
     );
-    expect(
-      screen.getByRole("heading", { name: `${firstResource.label} Airtable View` })
-    ).toBeInTheDocument();
+    expect(screen.getByTitle(`${firstResource.label} Airtable read-only view`)).toHaveAttribute(
+      "src",
+      firstResource.embedUrl
+    );
   });
 
-  it("switches resources when tabs are selected", async () => {
+  it("switches resources when header buttons are selected", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -30,30 +31,35 @@ describe("Employee dashboard", () => {
         "aria-pressed",
         "true"
       );
-      expect(
-        screen.getByRole("heading", { name: `${resource.label} Airtable View` })
-      ).toBeInTheDocument();
+      expect(screen.getByTitle(`${resource.label} Airtable read-only view`)).toHaveAttribute(
+        "src",
+        resource.embedUrl
+      );
     }
   });
 
-  it("always renders the configured Airtable direct-open fallback", () => {
+  it("renders only the selected Airtable view iframe", async () => {
+    const user = userEvent.setup();
+    const [firstResource, secondResource] = dashboardResources;
+
     render(<App />);
 
-    const fallbackLinks = screen.getAllByRole("link", { name: /open in airtable/i });
-    expect(fallbackLinks.length).toBeGreaterThanOrEqual(1);
-    expect(fallbackLinks[0]).toHaveAttribute(
-      "href",
-      "https://airtable.com/appYZtMb3u96lIGpk/shrcaORyqFY29lGl7/tblWOL7fHiQhNtN2U"
+    await user.click(screen.getByRole("button", { name: secondResource.label }));
+
+    expect(
+      screen.queryByTitle(`${firstResource.label} Airtable read-only view`)
+    ).not.toBeInTheDocument();
+    expect(screen.getByTitle(`${secondResource.label} Airtable read-only view`)).toHaveAttribute(
+      "src",
+      secondResource.embedUrl
     );
   });
 
-  it("renders configured Airtable embed URLs instead of placeholder guidance", () => {
+  it("removes the extra dashboard title, filter, and fallback chrome", () => {
     render(<App />);
 
+    expect(screen.queryByText(/read-only consultation/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/airtable url not configured yet/i)).not.toBeInTheDocument();
-    expect(screen.getByTitle(/tâches opérationnels airtable read-only view/i)).toHaveAttribute(
-      "src",
-      "https://airtable.com/embed/appYZtMb3u96lIGpk/shrcaORyqFY29lGl7/tblWOL7fHiQhNtN2U"
-    );
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
   });
 });
