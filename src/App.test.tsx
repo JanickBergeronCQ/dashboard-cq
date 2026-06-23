@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import App from "./App";
-import { dashboardResources } from "./resources";
+import { dashboardResources, employeePersonalViews } from "./resources";
+
+const standardResources = dashboardResources.filter((resource) => resource.id !== "personal-views");
 
 describe("Employee dashboard", () => {
   it("selects the first Airtable resource by default", () => {
@@ -10,6 +12,7 @@ describe("Employee dashboard", () => {
 
     render(<App />);
 
+    expect(screen.getByAltText("Carbone Québec")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: firstResource.label })).toHaveAttribute(
       "aria-pressed",
       "true"
@@ -24,7 +27,7 @@ describe("Employee dashboard", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    for (const resource of dashboardResources.filter((item) => item.enabled)) {
+    for (const resource of standardResources.filter((item) => item.enabled)) {
       await user.click(screen.getByRole("button", { name: resource.label }));
 
       expect(screen.getByRole("button", { name: resource.label })).toHaveAttribute(
@@ -53,6 +56,32 @@ describe("Employee dashboard", () => {
       "src",
       secondResource.embedUrl
     );
+  });
+
+  it("shows employee subnavigation when personal views are selected", async () => {
+    const user = userEvent.setup();
+    const personalTab = dashboardResources.find((resource) => resource.id === "personal-views");
+    const thirdEmployee = employeePersonalViews[2];
+
+    render(<App />);
+
+    expect(personalTab).toBeDefined();
+    await user.click(screen.getByRole("button", { name: personalTab!.label }));
+
+    for (const resource of employeePersonalViews) {
+      expect(screen.getByRole("button", { name: resource.label })).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole("button", { name: thirdEmployee.label }));
+
+    expect(screen.getByRole("button", { name: thirdEmployee.label })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("heading", { name: thirdEmployee.label })).toBeInTheDocument();
+    expect(
+      screen.queryByTitle(`${thirdEmployee.label} Airtable read-only view`)
+    ).not.toBeInTheDocument();
   });
 
   it("removes the extra dashboard title, filter, and fallback chrome", () => {

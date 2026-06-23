@@ -9,11 +9,18 @@ import {
   UserRound,
   UsersRound
 } from "lucide-react";
-import { DashboardIcon, DashboardResource, dashboardResources } from "./resources";
+import {
+  DashboardIcon,
+  DashboardResource,
+  dashboardResources,
+  employeePersonalViews,
+  isPlaceholderUrl
+} from "./resources";
 
 const icons: Record<DashboardIcon, typeof Folder> = {
   tasks: FileText,
   projects: Folder,
+  personal: UserRound,
   clients: UsersRound,
   inventory: Box,
   forms: FileText,
@@ -24,18 +31,20 @@ const icons: Record<DashboardIcon, typeof Folder> = {
 function ResourceTab({
   resource,
   selected,
-  onSelect
+  onSelect,
+  variant = "primary"
 }: {
   resource: DashboardResource;
   selected: boolean;
   onSelect: (resource: DashboardResource) => void;
+  variant?: "primary" | "sub";
 }) {
   const Icon = icons[resource.icon];
 
   return (
     <button
       type="button"
-      className="resource-tab"
+      className={`resource-tab resource-tab--${variant}`}
       data-selected={selected}
       disabled={!resource.enabled}
       aria-pressed={selected}
@@ -53,12 +62,25 @@ function ConsultationPanel({ resource }: { resource: DashboardResource }) {
   return (
     <main className="content-panel">
       <div className="embed-shell">
-        <iframe
-          src={resource.embedUrl}
-          title={iframeTitle}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        {isPlaceholderUrl(resource.embedUrl) ? (
+          <section className="empty-embed" aria-live="polite">
+            <div>
+              <p className="empty-kicker">Vue personnelle</p>
+              <h2>{resource.label}</h2>
+              <p>
+                Cette vue est prête à recevoir un lien Airtable. Ajoutez son URL dans la
+                configuration quand elle sera disponible.
+              </p>
+            </div>
+          </section>
+        ) : (
+          <iframe
+            src={resource.embedUrl}
+            title={iframeTitle}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        )}
       </div>
     </main>
   );
@@ -70,14 +92,17 @@ export default function App() {
     []
   );
   const [selectedResource, setSelectedResource] = useState(firstEnabledResource);
+  const [selectedPersonalView, setSelectedPersonalView] = useState(
+    employeePersonalViews.find((resource) => resource.enabled) ?? employeePersonalViews[0]
+  );
+  const isPersonalSection = selectedResource.id === "personal-views";
+  const activeResource = isPersonalSection ? selectedPersonalView : selectedResource;
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            CQ
-          </span>
+          <img className="brand-logo" src="./logo-cqf.png" alt="Carbone Québec" />
           <h1>CQ Employee Dashboard</h1>
         </div>
         <nav className="resource-nav" aria-label="Airtable resources">
@@ -102,7 +127,21 @@ export default function App() {
         </nav>
       </header>
 
-      <ConsultationPanel resource={selectedResource} />
+      {isPersonalSection ? (
+        <nav className="employee-nav" aria-label="Employee personal views">
+          {employeePersonalViews.map((resource) => (
+            <ResourceTab
+              key={resource.id}
+              resource={resource}
+              selected={resource.id === selectedPersonalView.id}
+              onSelect={setSelectedPersonalView}
+              variant="sub"
+            />
+          ))}
+        </nav>
+      ) : null}
+
+      <ConsultationPanel resource={activeResource} />
     </div>
   );
 }

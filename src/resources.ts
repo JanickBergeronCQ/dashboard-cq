@@ -1,6 +1,7 @@
 export type DashboardIcon =
   | "tasks"
   | "projects"
+  | "personal"
   | "clients"
   | "inventory"
   | "forms"
@@ -16,6 +17,56 @@ export type DashboardResource = {
   icon: DashboardIcon;
   enabled: boolean;
 };
+
+const pendingPersonalViewUrl = "";
+
+export const employeePersonalViews: DashboardResource[] = [
+  {
+    id: "employee-personal-1",
+    label: "Employé 1",
+    description: "Vue personnelle à configurer",
+    embedUrl: pendingPersonalViewUrl,
+    directUrl: pendingPersonalViewUrl,
+    icon: "personal",
+    enabled: true
+  },
+  {
+    id: "employee-personal-2",
+    label: "Employé 2",
+    description: "Vue personnelle à configurer",
+    embedUrl: pendingPersonalViewUrl,
+    directUrl: pendingPersonalViewUrl,
+    icon: "personal",
+    enabled: true
+  },
+  {
+    id: "employee-personal-3",
+    label: "Employé 3",
+    description: "Vue personnelle à configurer",
+    embedUrl: pendingPersonalViewUrl,
+    directUrl: pendingPersonalViewUrl,
+    icon: "personal",
+    enabled: true
+  },
+  {
+    id: "employee-personal-4",
+    label: "Employé 4",
+    description: "Vue personnelle à configurer",
+    embedUrl: pendingPersonalViewUrl,
+    directUrl: pendingPersonalViewUrl,
+    icon: "personal",
+    enabled: true
+  },
+  {
+    id: "employee-personal-5",
+    label: "Employé 5",
+    description: "Vue personnelle à configurer",
+    embedUrl: pendingPersonalViewUrl,
+    directUrl: pendingPersonalViewUrl,
+    icon: "personal",
+    enabled: true
+  }
+];
 
 export const dashboardResources: DashboardResource[] = [
   {
@@ -37,9 +88,18 @@ export const dashboardResources: DashboardResource[] = [
     directUrl: "https://airtable.com/appYZtMb3u96lIGpk/shra9klsZPwrQUA47/tbl6j0WsBvlJSXZEb",
     icon: "projects",
     enabled: true
+  },
+  {
+    id: "personal-views",
+    label: "Vue personnelle",
+    description: "Vues personnelles des employés",
+    embedUrl: employeePersonalViews[0]?.embedUrl ?? "",
+    directUrl: employeePersonalViews[0]?.directUrl ?? "",
+    icon: "personal",
+    enabled: true
   }
 ];
 
 export function isPlaceholderUrl(url: string) {
-  return url.includes("REPLACE_WITH_SHARED_VIEW_ID");
+  return !url || url.includes("REPLACE_WITH_SHARED_VIEW_ID");
 }
