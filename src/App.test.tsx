@@ -43,7 +43,7 @@ describe("Employee dashboard", () => {
     }
   });
 
-  it("renders only the selected Airtable view iframe", async () => {
+  it("keeps visited Airtable views mounted while switching the active one", async () => {
     const user = userEvent.setup();
     const [firstResource, secondResource] = dashboardResources;
 
@@ -51,13 +51,18 @@ describe("Employee dashboard", () => {
 
     await user.click(screen.getByRole("button", { name: secondResource.label }));
 
-    expect(
-      screen.queryByTitle(`${firstResource.label} Airtable read-only view`)
-    ).not.toBeInTheDocument();
-    expect(screen.getByTitle(`${secondResource.label} Airtable read-only view`)).toHaveAttribute(
-      "src",
-      secondResource.embedUrl
-    );
+    const firstFrame = screen.getByTitle(`${firstResource.label} Airtable read-only view`);
+    const secondFrame = screen.getByTitle(`${secondResource.label} Airtable read-only view`);
+
+    expect(firstFrame).toHaveAttribute("src", firstResource.embedUrl);
+    expect(secondFrame).toHaveAttribute("src", secondResource.embedUrl);
+    expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
+    expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
+
+    await user.click(screen.getByRole("button", { name: firstResource.label }));
+
+    expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
+    expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
   });
 
   it("shows employee subnavigation when personal views are selected", async () => {

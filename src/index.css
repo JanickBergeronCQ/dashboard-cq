@@ -350,6 +350,7 @@ h1 {
 }
 
 .embed-shell {
+  position: relative;
   min-width: 0;
   height: 100%;
   min-height: 0;
@@ -364,6 +365,18 @@ h1 {
         transparent 47px
       )
       border-box;
+}
+
+.cached-view {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cached-view[data-active="true"] {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .embed-shell iframe {

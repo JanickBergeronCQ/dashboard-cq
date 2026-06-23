@@ -55,31 +55,55 @@ function ResourceTab({
   );
 }
 
-function ConsultationPanel({ resource }: { resource: DashboardResource }) {
-  const iframeTitle = `${resource.label} Airtable read-only view`;
+function addUniqueId(ids: string[], id: string) {
+  return ids.includes(id) ? ids : [...ids, id];
+}
+
+function ConsultationPanel({
+  activeResource,
+  cachedResources
+}: {
+  activeResource: DashboardResource;
+  cachedResources: DashboardResource[];
+}) {
+  const activeResourceNeedsConfiguration = isPlaceholderUrl(activeResource.embedUrl);
 
   return (
     <main className="content-panel">
       <div className="embed-shell">
-        {isPlaceholderUrl(resource.embedUrl) ? (
+        {cachedResources.map((resource) => {
+          const isActive = resource.id === activeResource.id;
+          const iframeTitle = `${resource.label} Airtable read-only view`;
+
+          return (
+            <div
+              key={resource.id}
+              className="cached-view"
+              data-active={isActive}
+              aria-hidden={!isActive}
+            >
+              <iframe
+                src={resource.embedUrl}
+                title={iframeTitle}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          );
+        })}
+
+        {activeResourceNeedsConfiguration ? (
           <section className="empty-embed" aria-live="polite">
             <div>
               <p className="empty-kicker">Vue personnelle</p>
-              <h2>{resource.label}</h2>
+              <h2>{activeResource.label}</h2>
               <p>
                 Cette vue est prête à recevoir un lien Airtable. Ajoutez son URL dans la
                 configuration quand elle sera disponible.
               </p>
             </div>
           </section>
-        ) : (
-          <iframe
-            src={resource.embedUrl}
-            title={iframeTitle}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        )}
+        ) : null}
       </div>
     </main>
   );
@@ -91,11 +115,41 @@ export default function App() {
     []
   );
   const [selectedResource, setSelectedResource] = useState(firstEnabledResource);
-  const [selectedPersonalView, setSelectedPersonalView] = useState(
-    employeePersonalViews.find((resource) => resource.enabled) ?? employeePersonalViews[0]
-  );
+  const firstEnabledPersonalView =
+    employeePersonalViews.find((resource) => resource.enabled) ?? employeePersonalViews[0];
+  const [selectedPersonalView, setSelectedPersonalView] = useState(firstEnabledPersonalView);
+  const [visitedResourceIds, setVisitedResourceIds] = useState([firstEnabledResource.id]);
+  const [visitedPersonalViewIds, setVisitedPersonalViewIds] = useState([
+    firstEnabledPersonalView.id
+  ]);
   const isPersonalSection = selectedResource.id === "personal-views";
   const activeResource = isPersonalSection ? selectedPersonalView : selectedResource;
+  const cachedResources = [
+    ...dashboardResources.filter(
+      (resource) =>
+        resource.id !== "personal-views" &&
+        visitedResourceIds.includes(resource.id) &&
+        !isPlaceholderUrl(resource.embedUrl)
+    ),
+    ...employeePersonalViews.filter(
+      (resource) =>
+        visitedPersonalViewIds.includes(resource.id) && !isPlaceholderUrl(resource.embedUrl)
+    )
+  ];
+
+  function handleResourceSelect(resource: DashboardResource) {
+    setSelectedResource(resource);
+    setVisitedResourceIds((currentIds) => addUniqueId(currentIds, resource.id));
+
+    if (resource.id === "personal-views") {
+      setVisitedPersonalViewIds((currentIds) => addUniqueId(currentIds, selectedPersonalView.id));
+    }
+  }
+
+  function handlePersonalViewSelect(resource: DashboardResource) {
+    setSelectedPersonalView(resource);
+    setVisitedPersonalViewIds((currentIds) => addUniqueId(currentIds, resource.id));
+  }
 
   return (
     <div className="app-shell">
@@ -110,7 +164,7 @@ export default function App() {
               key={resource.id}
               resource={resource}
               selected={resource.id === selectedResource.id}
-              onSelect={setSelectedResource}
+              onSelect={handleResourceSelect}
             />
           ))}
         </nav>
@@ -129,14 +183,14 @@ export default function App() {
               key={resource.id}
               resource={resource}
               selected={resource.id === selectedPersonalView.id}
-              onSelect={setSelectedPersonalView}
+              onSelect={handlePersonalViewSelect}
               variant="sub"
             />
           ))}
         </nav>
       ) : null}
 
-      <ConsultationPanel resource={activeResource} />
+      <ConsultationPanel activeResource={activeResource} cachedResources={cachedResources} />
     </div>
   );
 }
