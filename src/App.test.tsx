@@ -13,6 +13,8 @@ describe("Employee dashboard", () => {
     render(<App />);
 
     expect(screen.getByAltText("Carbone Québec")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Opérations interne" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Help" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: firstResource.label })).toHaveAttribute(
       "aria-pressed",
       "true"

@@ -4,7 +4,6 @@ import {
   Box,
   FileText,
   Folder,
-  HelpCircle,
   ShieldCheck,
   UserRound,
   UsersRound
@@ -102,8 +101,8 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
-          <img className="brand-logo" src="./logo-cqf.png" alt="Carbone Québec" />
-          <h1>CQ Employee Dashboard</h1>
+          <img className="brand-logo" src="./logo-cq-horizontal.jpg" alt="Carbone Québec" />
+          <h1>Opérations interne</h1>
         </div>
         <nav className="resource-nav" aria-label="Airtable resources">
           {dashboardResources.map((resource) => (
@@ -116,10 +115,6 @@ export default function App() {
           ))}
         </nav>
         <nav className="utility-nav" aria-label="Dashboard utilities">
-          <a href="mailto:it-support@example.com">
-            <HelpCircle aria-hidden="true" size={19} />
-            Help
-          </a>
           <button type="button">
             <UserRound aria-hidden="true" size={19} />
             Employee

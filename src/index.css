@@ -84,13 +84,10 @@ input:focus-visible {
 
 .brand-logo {
   display: block;
-  width: min(230px, 20vw);
-  height: 38px;
+  width: min(260px, 22vw);
+  height: 42px;
   object-fit: contain;
   object-position: left center;
-  padding: 4px 8px;
-  background: #050608;
-  border-radius: 4px;
 }
 
 h1,
@@ -552,9 +549,8 @@ mark {
   }
 
   .brand-logo {
-    width: 148px;
-    height: 31px;
-    padding: 3px 6px;
+    width: 156px;
+    height: 30px;
   }
 
   h1 {
