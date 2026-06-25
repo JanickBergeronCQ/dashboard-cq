@@ -1,103 +1,151 @@
 # Linux Deployment
 
-This app builds to static files in `dist`. In production, Nginx can serve those files directly.
+The dashboard is now a Node app service behind Nginx. Nginx should proxy `/dashboard/` to the local Node service. The Node service serves the React build and the authenticated `/api/*` endpoints.
 
-## Option 1: Build Locally, Upload `dist`
-
-On Windows:
-
-```powershell
-npm.cmd install
-npm.cmd run build
-scp -r dist/* user@your-server:/tmp/dashboard-cq/
-```
-
-On the Linux server:
-
-```bash
-sudo mkdir -p /var/www/dashboard-cq
-sudo rsync -a --delete /tmp/dashboard-cq/ /var/www/dashboard-cq/
-sudo chown -R www-data:www-data /var/www/dashboard-cq
-```
-
-## Option 2: Build on the Server
+## Server Requirements
 
 ```bash
 sudo apt update
-sudo apt install -y nodejs npm nginx
-git clone <your-repository-url> dashboard-cq
-cd dashboard-cq
-npm install
-npm run build
-sudo mkdir -p /var/www/dashboard-cq
-sudo rsync -a --delete dist/ /var/www/dashboard-cq/
-sudo chown -R www-data:www-data /var/www/dashboard-cq
+sudo apt install -y nginx
 ```
 
-## Nginx Site
+Install Node 20+ using your preferred method. If the distro package is still Node 16, use NodeSource or another supported Node 20+ install path.
 
-Create `/etc/nginx/sites-available/dashboard-cq`:
+## App Directory
 
-```nginx
-server {
-    listen 80;
-    server_name dashboard.example.com;
+```bash
+cd /opt
+sudo git clone https://github.com/JanickBergeronCQ/dashboard-cq.git dashboard-cq
+sudo chown -R "$USER":"$USER" /opt/dashboard-cq
+cd /opt/dashboard-cq
+npm install
+npm run build
+```
 
-    root /var/www/dashboard-cq;
-    index index.html;
+For updates after the first install:
 
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+```bash
+cd /opt/dashboard-cq
+git pull
+npm install
+npm run build
+sudo systemctl restart dashboard-cq
+```
 
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-    add_header Referrer-Policy "strict-origin-when-cross-origin";
-}
+## Data Directory
+
+```bash
+sudo mkdir -p /var/lib/dashboard-cq
+sudo chown -R www-data:www-data /var/lib/dashboard-cq
+sudo chmod 750 /var/lib/dashboard-cq
+```
+
+SQLite will live at:
+
+```text
+/var/lib/dashboard-cq/dashboard.db
+```
+
+## Environment File
+
+Create `/etc/dashboard-cq.env`:
+
+```bash
+sudo nano /etc/dashboard-cq.env
+```
+
+Example:
+
+```env
+NODE_ENV=production
+PORT=3000
+DASHBOARD_DB_PATH=/var/lib/dashboard-cq/dashboard.db
+DASHBOARD_STATIC_DIR=/opt/dashboard-cq/dist
+DASHBOARD_SECURE_COOKIES=true
+DASHBOARD_ADMIN_EMAIL=admin@your-company.ca
+DASHBOARD_ADMIN_PASSWORD=CHANGE_THIS_LONG_TEMP_PASSWORD
+DASHBOARD_ADMIN_NAME=Dashboard Admin
+```
+
+Protect it:
+
+```bash
+sudo chown root:www-data /etc/dashboard-cq.env
+sudo chmod 640 /etc/dashboard-cq.env
+```
+
+The initial admin is created only when the database has no admin user. After the first login, change the temporary password.
+
+## systemd Service
+
+Create `/etc/systemd/system/dashboard-cq.service`:
+
+```ini
+[Unit]
+Description=Dashboard CQ
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/dashboard-cq
+EnvironmentFile=/etc/dashboard-cq.env
+ExecStart=/usr/bin/node /opt/dashboard-cq/server-dist/index.js
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 Enable it:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/dashboard-cq /etc/nginx/sites-enabled/dashboard-cq
-sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl daemon-reload
+sudo systemctl enable dashboard-cq
+sudo systemctl start dashboard-cq
+sudo systemctl status dashboard-cq
 ```
 
-## Optional HTTPS
+## Nginx Reverse Proxy
 
-If the server has a real domain:
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d dashboard.example.com
-```
-
-## Optional Basic Authentication
-
-Install tools:
-
-```bash
-sudo apt install -y apache2-utils
-sudo htpasswd -c /etc/nginx/.dashboard-cq.htpasswd employee-admin
-```
-
-Add inside the Nginx `server` block:
+In the existing `l.cq2.ca` server block, replace the static `/dashboard/` alias with:
 
 ```nginx
-auth_basic "CQ Employee Dashboard";
-auth_basic_user_file /etc/nginx/.dashboard-cq.htpasswd;
+location = /dashboard {
+    return 301 /dashboard/;
+}
+
+location ^~ /dashboard/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
 ```
 
-Then validate and reload:
+Validate and reload:
 
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## Updating Airtable Links
+## Verification
 
-Replace placeholder URLs in `src/resources.ts`, rebuild, and redeploy `dist`.
+```bash
+curl -I http://127.0.0.1:3000/
+curl -k -I https://l.cq2.ca/dashboard/
+sudo journalctl -u dashboard-cq -n 80 --no-pager
+```
 
-If an Airtable embed does not appear, check that the Airtable view is shared correctly and use the visible `Open in Airtable` link as the fallback path.
+Then open:
+
+```text
+https://l.cq2.ca/dashboard/
+```
+
+Login with the initial admin account from `/etc/dashboard-cq.env`, change the temporary password, then create employee users and roles from the admin panel.

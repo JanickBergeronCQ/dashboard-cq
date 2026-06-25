@@ -1,6 +1,8 @@
-# CQ Employee Dashboard
+# Dashboard CQ
 
-Static React dashboard for collecting employee-facing, read-only Airtable views in one place.
+Authenticated internal dashboard for employee-facing Airtable views.
+
+The app now runs as a small Node service behind Nginx. The service serves the React UI, stores users/roles/resources in SQLite, and exposes authenticated `/api/*` endpoints.
 
 ## Local Setup
 
@@ -9,27 +11,40 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-Open the local URL printed by Vite.
+Local development runs:
 
-## Configure Airtable Views
+- Vite client on `127.0.0.1:5173`
+- Node API service on `127.0.0.1:3000`
+- Vite proxies `/api` to the API service
 
-Edit `src/resources.ts` to add, remove, rename, or update Airtable views:
+Default local admin account after the first database seed:
 
-- `embedUrl`: Airtable shared embed URL, usually starting with `https://airtable.com/embed/...`
-- `directUrl`: normal Airtable shared view URL, used when embedding is blocked or users need a full-page view
+- Email: `admin@example.com`
+- Password: `ChangeMeNow!2026`
 
-Do not commit private API keys. This app does not need Airtable API credentials.
+Set `DASHBOARD_ADMIN_EMAIL`, `DASHBOARD_ADMIN_PASSWORD`, and `DASHBOARD_ADMIN_NAME` before the first server start to choose different initial admin credentials.
 
-## Available Scripts
+## Security Model
+
+- No public account creation.
+- Admin users create employee access.
+- Temporary passwords must be changed on first login.
+- Sessions use `HttpOnly`, `SameSite=Lax` cookies.
+- Production cookies are `Secure` by default.
+- Roles control which dashboard resources are returned to each user.
+
+Important: v1 still uses Airtable shared/embed URLs. The dashboard controls who can see links inside this app, but copied Airtable shared links may still work outside the dashboard depending on Airtable sharing settings.
+
+## Scripts
 
 ```powershell
 npm.cmd run dev
-npm.cmd run build
 npm.cmd test
+npm.cmd run build
+npm.cmd start
 ```
 
-`npm.cmd run build` creates the static production site in `dist`.
+`npm.cmd run build` creates:
 
-## Production Model
-
-The app is deployed as static files. The Linux server only needs a web server such as Nginx to serve `dist`; it does not need a Node service running in production.
+- `dist/` for React static assets
+- `server-dist/` for the Node service
