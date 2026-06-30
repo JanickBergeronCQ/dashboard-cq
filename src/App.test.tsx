@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -266,6 +266,14 @@ describe("Employee dashboard", () => {
 
     expect(firstFrame).toHaveAttribute("src", resources.resources[0].embedUrl);
     expect(firstFrame).not.toHaveAttribute("loading", "lazy");
+    expect(screen.getByText("Chargement Airtable...")).toBeInTheDocument();
+    fireEvent.load(firstFrame);
+    await waitFor(
+      () => {
+        expect(screen.queryByText("Chargement Airtable...")).not.toBeInTheDocument();
+      },
+      { timeout: 500 }
+    );
     expect(screen.queryByTitle("Avancement de Projets Airtable read-only view")).not.toBeInTheDocument();
 
     const secondFrame = await screen.findByTitle("Avancement de Projets Airtable read-only view", {}, {

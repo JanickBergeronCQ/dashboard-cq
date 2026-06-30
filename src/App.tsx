@@ -123,6 +123,8 @@ function ConsultationPanel({
   cachedResources: DashboardResource[];
   loading?: boolean;
 }) {
+  const [loadedFrameKeys, setLoadedFrameKeys] = useState<Set<string>>(() => new Set());
+
   if (loading) {
     return (
       <main className="content-panel">
@@ -197,11 +199,29 @@ function ConsultationPanel({
                       aria-hidden="true"
                     />
                   ) : null}
-                  <div key={frame.id} className="iframe-pane">
+                  <div className="iframe-pane">
+                    {!loadedFrameKeys.has(`${frame.id}:${frame.src}`) ? (
+                      <div className="iframe-loading-overlay" role="status">
+                        <span className="loading-spinner" aria-hidden="true" />
+                        <span>Chargement Airtable...</span>
+                      </div>
+                    ) : null}
                     <iframe
                       src={frame.src}
                       title={frame.title}
                       referrerPolicy="no-referrer-when-downgrade"
+                      onLoad={() => {
+                        const frameKey = `${frame.id}:${frame.src}`;
+                        setLoadedFrameKeys((current) => {
+                          if (current.has(frameKey)) {
+                            return current;
+                          }
+
+                          const next = new Set(current);
+                          next.add(frameKey);
+                          return next;
+                        });
+                      }}
                     />
                   </div>
                 </Fragment>
