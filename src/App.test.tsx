@@ -66,7 +66,7 @@ const adminSnapshot = {
     }
   ],
   roles: [{ id: 1, name: "Dashboard Admin", description: "Full access" }],
-  resources: resources.resources.map((resource) => ({ ...resource, roleIds: [1] }))
+  resources: resources.resources.map((resource) => ({ ...resource, roleIds: [1], userIds: [1] }))
 };
 
 afterEach(() => {

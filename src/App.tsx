@@ -43,6 +43,7 @@ type AdminUser = CurrentUser & {
 
 type AdminResource = DashboardResource & {
   roleIds: number[];
+  userIds: number[];
 };
 
 type AdminSnapshot = {
@@ -552,14 +553,21 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
     }
   }
 
-  async function updateResourceRoles(resource: AdminResource, roleIds: number[]) {
+  async function updateResourceAccess(
+    resource: AdminResource,
+    patch: { roleIds?: number[]; userIds?: number[] }
+  ) {
     setError("");
     setNotice("");
 
     try {
       await api("admin/permissions", {
         method: "POST",
-        body: JSON.stringify({ resourceId: resource.id, roleIds })
+        body: JSON.stringify({
+          resourceId: resource.id,
+          roleIds: patch.roleIds ?? resource.roleIds,
+          userIds: patch.userIds ?? resource.userIds
+        })
       });
       await refresh();
       setNotice(`Accès mis à jour pour ${resource.label}.`);
@@ -719,6 +727,7 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
                 <h3>{resource.label}</h3>
                 <p>{resource.kind === "personal" ? "Vue personnelle" : "Vue principale"}</p>
               </div>
+              <p className="access-group-title">Rôles autorisés</p>
               <div className="checkbox-row">
                 {snapshot.roles.map((role) => {
                   const checked = resource.roleIds.includes(role.id);
@@ -731,9 +740,29 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => updateResourceRoles(resource, nextRoleIds)}
+                        onChange={() => updateResourceAccess(resource, { roleIds: nextRoleIds })}
                       />
                       {role.name}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="access-group-title">Utilisateurs autorisés</p>
+              <div className="checkbox-row">
+                {snapshot.users.map((userAccess) => {
+                  const checked = resource.userIds.includes(userAccess.id);
+                  const nextUserIds = checked
+                    ? resource.userIds.filter((userId) => userId !== userAccess.id)
+                    : [...resource.userIds, userAccess.id];
+
+                  return (
+                    <label key={userAccess.id} className="check-label">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => updateResourceAccess(resource, { userIds: nextUserIds })}
+                      />
+                      {userAccess.displayName}
                     </label>
                   );
                 })}

@@ -95,6 +95,29 @@ describe("auth API", () => {
 });
 
 describe("resource permissions", () => {
+  it("seeds named personal views with Airtable URLs", async () => {
+    const personalViews = db()
+      .prepare("SELECT id, label, embed_url, direct_url FROM resources WHERE kind = 'personal'")
+      .all() as { id: string; label: string; embed_url: string; direct_url: string }[];
+
+    expect(personalViews).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "employee-personal-1",
+          label: "Jean-François",
+          embed_url:
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide",
+          direct_url:
+            "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide"
+        }),
+        expect.objectContaining({
+          id: "employee-personal-4",
+          label: "Pier-Alexandre"
+        })
+      ])
+    );
+  });
+
   it("returns only resources allowed by the user's roles", async () => {
     const admin = await loginAsAdmin();
     const roleResponse = await admin
@@ -132,6 +155,39 @@ describe("resource permissions", () => {
     expect(response.status).toBe(200);
     expect(response.body.resources.map((resource: { id: string }) => resource.id)).toEqual([
       "operational-tasks"
+    ]);
+  });
+
+  it("returns resources assigned directly to the user", async () => {
+    const admin = await loginAsAdmin();
+
+    await admin.post("/api/admin/users").send({
+      email: "direct@example.com",
+      displayName: "Direct User",
+      temporaryPassword: "Temporary123!",
+      isAdmin: false,
+      roleIds: []
+    });
+    const directUser = db()
+      .prepare("SELECT id FROM users WHERE email = ?")
+      .get("direct@example.com") as { id: number };
+    db().prepare("UPDATE users SET must_change_password = 0 WHERE email = ?").run("direct@example.com");
+
+    await admin
+      .post("/api/admin/permissions")
+      .send({ resourceId: "employee-personal-1", roleIds: [], userIds: [directUser.id] });
+
+    const employee = request.agent(currentApp);
+    await employee.post("/api/auth/login").send({
+      email: "direct@example.com",
+      password: "Temporary123!"
+    });
+
+    const response = await employee.get("/api/dashboard/resources");
+
+    expect(response.status).toBe(200);
+    expect(response.body.personalViews.map((resource: { id: string }) => resource.id)).toEqual([
+      "employee-personal-1"
     ]);
   });
 

@@ -96,6 +96,12 @@ export function initializeDatabase(db: Database.Database, options: { seedAdmin?:
       PRIMARY KEY (role_id, resource_id)
     );
 
+    CREATE TABLE IF NOT EXISTS user_resource_permissions (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      resource_id TEXT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, resource_id)
+    );
+
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       token_hash TEXT NOT NULL UNIQUE,
@@ -193,6 +199,8 @@ function seedResources(db: Database.Database) {
       insertResource.run(resource);
     }
 
+    syncPersonalViewSeeds(db);
+
     createDefaultRole.run();
     const role =
       adminRole ?? (db.prepare("SELECT id FROM roles WHERE name = ?").get("Dashboard Admin") as { id: number });
@@ -201,6 +209,65 @@ function seedResources(db: Database.Database) {
       grantRole.run({ roleId: role.id, resourceId: resource.id });
     }
   })();
+}
+
+function syncPersonalViewSeeds(db: Database.Database) {
+  const updateResource = db.prepare(`
+    UPDATE resources
+    SET label = @label,
+        description = @description,
+        embed_url = @embed_url,
+        direct_url = @direct_url,
+        updated_at = datetime('now')
+    WHERE id = @id
+      AND (
+        embed_url = ''
+        OR label LIKE 'Employé %'
+        OR label LIKE 'EmployÃ© %'
+      )
+  `);
+
+  const personalViews = [
+    {
+      id: "employee-personal-1",
+      label: "Jean-François",
+      description: "Vue personnelle",
+      direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide"
+    },
+    {
+      id: "employee-personal-2",
+      label: "Simon",
+      description: "Vue personnelle",
+      direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbz6tBrFiDAVTUI?blocks=hide"
+    },
+    {
+      id: "employee-personal-3",
+      label: "Pierre-Émile",
+      description: "Vue personnelle",
+      direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwXHv7UmBCRDWSZM?blocks=hide"
+    },
+    {
+      id: "employee-personal-4",
+      label: "Pier-Alexandre",
+      description: "Vue personnelle",
+      direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbD9Q3oQ0uZHNSe?blocks=hide"
+    }
+  ];
+
+  for (const view of personalViews) {
+    updateResource.run({
+      ...view,
+      embed_url: toAirtableEmbedUrl(view.direct_url)
+    });
+  }
+}
+
+function toAirtableEmbedUrl(url: string) {
+  return url.replace("https://airtable.com/", "https://airtable.com/embed/");
 }
 
 function seedAdminUser(db: Database.Database) {

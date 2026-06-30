@@ -428,6 +428,13 @@ h1 {
   font-size: 14px;
 }
 
+.access-group-title {
+  color: #506178;
+  font-size: 12px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
 .admin-card-actions,
 .checkbox-row {
   display: flex;

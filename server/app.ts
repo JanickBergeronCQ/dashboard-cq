@@ -66,12 +66,14 @@ const resourceUpdateSchema = z.object({
   icon: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
   order: z.number().int().optional(),
-  roleIds: z.array(z.number().int().positive()).optional()
+  roleIds: z.array(z.number().int().positive()).optional(),
+  userIds: z.array(z.number().int().positive()).optional()
 });
 
 const permissionsSchema = z.object({
   resourceId: z.string().min(1),
-  roleIds: z.array(z.number().int().positive())
+  roleIds: z.array(z.number().int().positive()).default([]),
+  userIds: z.array(z.number().int().positive()).default([])
 });
 
 export function createApp(options: AppOptions) {
@@ -319,6 +321,10 @@ export function createApp(options: AppOptions) {
         replaceResourceRoles(db, resourceId, parsed.data.roleIds);
       }
 
+      if (parsed.data.userIds) {
+        replaceResourceUsers(db, resourceId, parsed.data.userIds);
+      }
+
       audit(db, req.user!.id, "update_resource", "resource", resourceId, parsed.data);
       return res.json({ resources: listAdminResources(db), roles: listRoles(db) });
     }
@@ -332,6 +338,7 @@ export function createApp(options: AppOptions) {
     }
 
     replaceResourceRoles(db, parsed.data.resourceId, parsed.data.roleIds);
+    replaceResourceUsers(db, parsed.data.resourceId, parsed.data.userIds);
     audit(db, req.user!.id, "update_permissions", "resource", parsed.data.resourceId, parsed.data);
     return res.json({ resources: listAdminResources(db), roles: listRoles(db) });
   });
@@ -473,13 +480,14 @@ function getAccessibleResources(db: Database.Database, userId: number, isAdmin: 
     .prepare(
       `SELECT DISTINCT resources.*
        FROM resources
-       JOIN role_resource_permissions ON role_resource_permissions.resource_id = resources.id
-       JOIN user_roles ON user_roles.role_id = role_resource_permissions.role_id
-       WHERE user_roles.user_id = ?
+       LEFT JOIN role_resource_permissions ON role_resource_permissions.resource_id = resources.id
+       LEFT JOIN user_roles ON user_roles.role_id = role_resource_permissions.role_id
+       LEFT JOIN user_resource_permissions ON user_resource_permissions.resource_id = resources.id
+       WHERE (user_roles.user_id = ? OR user_resource_permissions.user_id = ?)
          AND resources.enabled = 1
        ORDER BY resources.kind, resources.order_index, resources.label`
     )
-    .all(userId) as ResourceRecord[];
+    .all(userId, userId) as ResourceRecord[];
 }
 
 function listUsers(db: Database.Database) {
@@ -515,7 +523,14 @@ function listAdminResources(db: Database.Database) {
           "SELECT role_id FROM role_resource_permissions WHERE resource_id = ? ORDER BY role_id"
         )
         .all(resource.id) as { role_id: number }[]
-    ).map((role) => role.role_id)
+    ).map((role) => role.role_id),
+    userIds: (
+      db
+        .prepare(
+          "SELECT user_id FROM user_resource_permissions WHERE resource_id = ? ORDER BY user_id"
+        )
+        .all(resource.id) as { user_id: number }[]
+    ).map((user) => user.user_id)
   }));
 }
 
@@ -539,6 +554,19 @@ function replaceResourceRoles(db: Database.Database, resourceId: string, roleIds
 
     for (const roleId of roleIds) {
       insert.run(roleId, resourceId);
+    }
+  })();
+}
+
+function replaceResourceUsers(db: Database.Database, resourceId: string, userIds: number[]) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM user_resource_permissions WHERE resource_id = ?").run(resourceId);
+    const insert = db.prepare(
+      "INSERT OR IGNORE INTO user_resource_permissions (user_id, resource_id) VALUES (?, ?)"
+    );
+
+    for (const userId of userIds) {
+      insert.run(userId, resourceId);
     }
   })();
 }
