@@ -215,7 +215,45 @@ describe("Employee dashboard", () => {
     expect(screen.queryByRole("button", { name: "Tâches Opérationnels" })).not.toBeInTheDocument();
   });
 
-  it("preloads accessible Airtable views and switches the active one", async () => {
+  it("renders the dashboard shell while resources load in the background", async () => {
+    let resolveResources: (response: Response) => void = () => undefined;
+    const resourcesRequest = new Promise<Response>((resolve) => {
+      resolveResources = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+
+        if (url === "api/auth/me") {
+          return jsonResponse({ user });
+        }
+
+        if (url === "api/dashboard/resources") {
+          return resourcesRequest;
+        }
+
+        return jsonResponse({ error: "Unexpected request: " + url }, { status: 500 });
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Chargement des vues...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Employee" })).toBeInTheDocument();
+
+    resolveResources(
+      new Response(JSON.stringify(resources), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    expect(await screen.findByRole("button", { name: "Avancement de Projets" })).toBeInTheDocument();
+  });
+
+  it("prioritizes the landing view before preloading background Airtable views", async () => {
     const testUser = userEvent.setup();
     mockApi({ currentUser: admin });
 
@@ -224,11 +262,16 @@ describe("Employee dashboard", () => {
     await screen.findByRole("button", { name: "Avancement de Projets" });
 
     const firstFrame = screen.getByTitle("Tâches Opérationnels Airtable read-only view");
-    const secondFrame = screen.getByTitle("Avancement de Projets Airtable read-only view");
 
     expect(firstFrame).toHaveAttribute("src", resources.resources[0].embedUrl);
-    expect(secondFrame).toHaveAttribute("src", resources.resources[1].embedUrl);
     expect(firstFrame).not.toHaveAttribute("loading", "lazy");
+    expect(screen.queryByTitle("Avancement de Projets Airtable read-only view")).not.toBeInTheDocument();
+
+    const secondFrame = await screen.findByTitle("Avancement de Projets Airtable read-only view", {}, {
+      timeout: 2000
+    });
+
+    expect(secondFrame).toHaveAttribute("src", resources.resources[1].embedUrl);
     expect(secondFrame).not.toHaveAttribute("loading", "lazy");
     expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
     expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
@@ -274,6 +317,7 @@ describe("Employee dashboard", () => {
     expect(leftFrame).toHaveAttribute("src", "https://airtable.com/embed/simon-left");
     expect(rightFrame).toHaveAttribute("src", "https://airtable.com/embed/simon-right");
     expect(leftFrame.closest(".cached-view")).toHaveClass("cached-view--split");
+    expect(leftFrame.closest(".cached-view")?.querySelector(".split-divider")).toBeInTheDocument();
     expect(rightFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
   });
 

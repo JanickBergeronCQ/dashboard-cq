@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   Box,
@@ -116,11 +116,27 @@ function ResourceTab({
 
 function ConsultationPanel({
   activeResource,
-  cachedResources
+  cachedResources,
+  loading
 }: {
   activeResource?: DashboardResource;
   cachedResources: DashboardResource[];
+  loading?: boolean;
 }) {
+  if (loading) {
+    return (
+      <main className="content-panel">
+        <section className="empty-embed" aria-live="polite">
+          <div>
+            <p className="empty-kicker">Dashboard</p>
+            <h2>Chargement des vues</h2>
+            <p>La page est prête. Les vues Airtable se chargent en arrière-plan.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (!activeResource) {
     return (
       <main className="content-panel">
@@ -171,14 +187,23 @@ function ConsultationPanel({
               data-active={isActive}
               aria-hidden={!isActive}
             >
-              {frameSources.map((frame) => (
-                <div key={frame.id} className="iframe-pane">
-                  <iframe
-                    src={frame.src}
-                    title={frame.title}
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
+              {frameSources.map((frame, index) => (
+                <Fragment key={frame.id}>
+                  {index > 0 ? (
+                    <div
+                      key={`${resource.id}-divider-${index}`}
+                      className="split-divider"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <div key={frame.id} className="iframe-pane">
+                    <iframe
+                      src={frame.src}
+                      title={frame.title}
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                </Fragment>
               ))}
             </div>
           );
@@ -319,6 +344,7 @@ function Dashboard({
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   const [selectedPersonalViewId, setSelectedPersonalViewId] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [preloadBackgroundViews, setPreloadBackgroundViews] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -327,6 +353,7 @@ function Dashboard({
       .then((result) => {
         if (ignore) return;
         setResources(result);
+        setPreloadBackgroundViews(false);
         const firstResource = result.resources[0] ?? null;
         const firstPersonalView = result.personalViews[0] ?? null;
         setSelectedResourceId((current) => current ?? firstResource?.id ?? null);
@@ -340,6 +367,16 @@ function Dashboard({
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!resources) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setPreloadBackgroundViews(true), 900);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resources]);
 
   const topResources = resources?.resources ?? [];
   const personalViews = resources?.personalViews ?? [];
@@ -367,10 +404,14 @@ function Dashboard({
 
     return personalGroup ? [...topResources, personalGroup] : topResources;
   }, [personalViews.length, topResources]);
-  const cachedResources = [
+  const preloadableResources = [
     ...topResources.filter((resource) => !isPlaceholderUrl(resource.embedUrl)),
     ...personalViews.filter((resource) => !isPlaceholderUrl(resource.embedUrl))
   ];
+  const cachedResources =
+    preloadBackgroundViews || !activeResource
+      ? preloadableResources
+      : preloadableResources.filter((resource) => resource.id === activeResource.id);
 
   function handleResourceSelect(resource: DashboardResource) {
     setSelectedResourceId(resource.id);
@@ -385,10 +426,6 @@ function Dashboard({
     onLogout();
   }
 
-  if (loadingResources) {
-    return <main className="loading-screen">Chargement...</main>;
-  }
-
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -397,7 +434,9 @@ function Dashboard({
           <h1>Opérations interne</h1>
         </div>
 
-        {!showAdmin ? (
+        {!showAdmin && loadingResources ? (
+          <div className="resource-nav admin-title">Chargement des vues...</div>
+        ) : !showAdmin ? (
           <nav className="resource-nav" aria-label="Airtable resources">
             {topTabs.map((resource) => (
               <ResourceTab
@@ -448,7 +487,11 @@ function Dashboard({
             </nav>
           ) : null}
 
-          <ConsultationPanel activeResource={activeResource} cachedResources={cachedResources} />
+          <ConsultationPanel
+            activeResource={activeResource}
+            cachedResources={cachedResources}
+            loading={loadingResources}
+          />
         </>
       )}
     </div>
