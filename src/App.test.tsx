@@ -63,6 +63,15 @@ const adminSnapshot = {
       ...admin,
       active: true,
       roleIds: [1]
+    },
+    {
+      id: 2,
+      email: "old.employee@example.com",
+      displayName: "Old Employee",
+      isAdmin: false,
+      mustChangePassword: false,
+      active: true,
+      roleIds: []
     }
   ],
   roles: [{ id: 1, name: "Dashboard Admin", description: "Full access" }],
@@ -89,6 +98,8 @@ function mockApi({
   currentUser?: typeof user | null;
   dashboardResources?: DashboardResourcesResponse;
 } = {}) {
+  let adminUsers = [...adminSnapshot.users];
+
   vi.stubGlobal(
     "fetch",
     vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
@@ -109,23 +120,33 @@ function mockApi({
       }
 
       if (url === "api/admin/users" && !options?.method) {
-        return jsonResponse({ users: adminSnapshot.users });
+        return jsonResponse({ users: adminUsers });
       }
 
       if (url === "api/admin/users" && options?.method === "POST") {
+        adminUsers = [
+          ...adminUsers,
+          {
+            id: 3,
+            email: "new.employee@example.com",
+            displayName: "New Employee",
+            isAdmin: false,
+            mustChangePassword: true,
+            active: true,
+            roleIds: []
+          }
+        ];
+
         return jsonResponse({
-          users: [
-            ...adminSnapshot.users,
-            {
-              id: 2,
-              email: "new.employee@example.com",
-              displayName: "New Employee",
-              isAdmin: false,
-              mustChangePassword: true,
-              active: true,
-              roleIds: []
-            }
-          ]
+          users: adminUsers
+        });
+      }
+
+      if (url.startsWith("api/admin/users/") && options?.method === "DELETE") {
+        const userId = Number(url.split("/").at(-1));
+        adminUsers = adminUsers.filter((adminUser) => adminUser.id !== userId);
+        return jsonResponse({
+          users: adminUsers
         });
       }
 
@@ -220,6 +241,42 @@ describe("Employee dashboard", () => {
     });
   });
 
+  it("renders Simon's personal view as a preloaded split frame", async () => {
+    const testUser = userEvent.setup();
+    mockApi({
+      dashboardResources: {
+        ...resources,
+        personalViews: [
+          {
+            id: "employee-personal-2",
+            label: "Simon",
+            description: "Vue personnelle",
+            embedUrl: "https://airtable.com/embed/simon-right",
+            directUrl: "https://airtable.com/simon-right",
+            secondaryEmbedUrl: "https://airtable.com/embed/simon-left",
+            secondaryDirectUrl: "https://airtable.com/simon-left",
+            icon: "personal",
+            enabled: true,
+            kind: "personal",
+            order: 20
+          }
+        ]
+      }
+    });
+
+    render(<App />);
+
+    await testUser.click(await screen.findByRole("button", { name: "Vue personnelle" }));
+
+    const leftFrame = screen.getByTitle("Simon Airtable kanban view");
+    const rightFrame = screen.getByTitle("Simon Airtable personal view");
+
+    expect(leftFrame).toHaveAttribute("src", "https://airtable.com/embed/simon-left");
+    expect(rightFrame).toHaveAttribute("src", "https://airtable.com/embed/simon-right");
+    expect(leftFrame.closest(".cached-view")).toHaveClass("cached-view--split");
+    expect(rightFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
+  });
+
   it("creates user access with visible success feedback", async () => {
     const testUser = userEvent.setup();
     mockApi({ currentUser: admin });
@@ -235,5 +292,20 @@ describe("Employee dashboard", () => {
     await testUser.click(screen.getByRole("button", { name: "Créer" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Accès créé pour New Employee.");
+  });
+
+  it("deletes user access with confirmation and visible feedback", async () => {
+    const testUser = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockApi({ currentUser: admin });
+
+    render(<App />);
+
+    await testUser.click(await screen.findByRole("button", { name: "Admin" }));
+    await screen.findByRole("heading", { name: "Old Employee" });
+    await testUser.click(screen.getAllByRole("button", { name: "Supprimer" })[1]);
+
+    expect(confirmSpy).toHaveBeenCalledWith("Supprimer l'accès de Old Employee?");
+    expect(await screen.findByRole("status")).toHaveTextContent("Accès supprimé pour Old Employee.");
   });
 });

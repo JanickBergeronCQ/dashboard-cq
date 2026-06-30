@@ -237,6 +237,43 @@ export function createApp(options: AppOptions) {
     return res.json({ users: listUsers(db) });
   });
 
+  app.delete("/api/admin/users/:id", authenticate(db), requirePasswordReady, requireAdmin, (req: RequestWithUser, res) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId)) {
+      return res.status(400).json({ error: "Invalid user id." });
+    }
+
+    if (userId === req.user!.id) {
+      return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre accÃ¨s." });
+    }
+
+    const current = db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as
+      | UserRecord
+      | undefined;
+
+    if (!current) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (current.is_admin === 1) {
+      const remainingAdmins = db
+        .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 AND active = 1 AND id <> ?")
+        .get(userId) as { count: number };
+
+      if (remainingAdmins.count === 0) {
+        return res.status(400).json({ error: "Vous devez conserver au moins un administrateur actif." });
+      }
+    }
+
+    db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+    audit(db, req.user!.id, "delete_user", "user", String(userId), {
+      email: current.email
+    });
+
+    return res.json({ users: listUsers(db) });
+  });
+
   app.get("/api/admin/roles", authenticate(db), requirePasswordReady, requireAdmin, (_req, res) => {
     return res.json({ roles: listRoles(db) });
   });
@@ -462,6 +499,8 @@ function toPublicResource(resource: ResourceRecord) {
     description: resource.description ?? undefined,
     embedUrl: resource.embed_url,
     directUrl: resource.direct_url,
+    secondaryEmbedUrl: resource.secondary_embed_url || undefined,
+    secondaryDirectUrl: resource.secondary_direct_url || undefined,
     icon: resource.icon,
     enabled: resource.enabled === 1,
     kind: resource.kind,

@@ -97,8 +97,17 @@ describe("auth API", () => {
 describe("resource permissions", () => {
   it("seeds named personal views with Airtable URLs", async () => {
     const personalViews = db()
-      .prepare("SELECT id, label, embed_url, direct_url FROM resources WHERE kind = 'personal'")
-      .all() as { id: string; label: string; embed_url: string; direct_url: string }[];
+      .prepare(
+        "SELECT id, label, embed_url, direct_url, secondary_embed_url, secondary_direct_url FROM resources WHERE kind = 'personal'"
+      )
+      .all() as {
+        id: string;
+        label: string;
+        embed_url: string;
+        direct_url: string;
+        secondary_embed_url: string;
+        secondary_direct_url: string;
+      }[];
 
     expect(personalViews).toEqual(
       expect.arrayContaining([
@@ -114,7 +123,10 @@ describe("resource permissions", () => {
           label: "Simon",
           embed_url:
             "https://airtable.com/embed/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi",
-          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi"
+          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi",
+          secondary_embed_url:
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/shr2z8VpQMOjXf3TQ",
+          secondary_direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shr2z8VpQMOjXf3TQ"
         }),
         expect.objectContaining({
           id: "employee-personal-3",
@@ -205,6 +217,44 @@ describe("resource permissions", () => {
     expect(response.body.personalViews.map((resource: { id: string }) => resource.id)).toEqual([
       "employee-personal-1"
     ]);
+  });
+
+  it("deletes users and cascades their direct resource access", async () => {
+    const admin = await loginAsAdmin();
+
+    await admin.post("/api/admin/users").send({
+      email: "delete-me@example.com",
+      displayName: "Delete Me",
+      temporaryPassword: "Temporary123!",
+      isAdmin: false,
+      roleIds: []
+    });
+    const targetUser = db()
+      .prepare("SELECT id FROM users WHERE email = ?")
+      .get("delete-me@example.com") as { id: number };
+
+    await admin
+      .post("/api/admin/permissions")
+      .send({ resourceId: "employee-personal-1", roleIds: [], userIds: [targetUser.id] });
+
+    const response = await admin.delete(`/api/admin/users/${targetUser.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.users.some((user: { id: number }) => user.id === targetUser.id)).toBe(false);
+    expect(
+      (
+        await request(currentApp)
+          .post("/api/auth/login")
+          .send({ email: "delete-me@example.com", password: "Temporary123!" })
+      ).status
+    ).toBe(401);
+    expect(
+      (
+        db()
+          .prepare("SELECT COUNT(*) as count FROM user_resource_permissions WHERE user_id = ?")
+          .get(targetUser.id) as { count: number }
+      ).count
+    ).toBe(0);
   });
 
   it("blocks admin APIs for non-admin users", async () => {

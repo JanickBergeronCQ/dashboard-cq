@@ -39,6 +39,8 @@ export type ResourceRecord = {
   description: string | null;
   embed_url: string;
   direct_url: string;
+  secondary_embed_url: string;
+  secondary_direct_url: string;
   icon: DashboardIcon;
   enabled: 0 | 1;
   kind: ResourceKind;
@@ -82,6 +84,8 @@ export function initializeDatabase(db: Database.Database, options: { seedAdmin?:
       description TEXT,
       embed_url TEXT NOT NULL,
       direct_url TEXT NOT NULL,
+      secondary_embed_url TEXT NOT NULL DEFAULT '',
+      secondary_direct_url TEXT NOT NULL DEFAULT '',
       icon TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1,
       kind TEXT NOT NULL CHECK (kind IN ('standard', 'personal')),
@@ -123,6 +127,7 @@ export function initializeDatabase(db: Database.Database, options: { seedAdmin?:
     );
   `);
 
+  ensureResourceSecondaryColumns(db);
   seedResources(db);
 
   if (options.seedAdmin ?? true) {
@@ -130,13 +135,26 @@ export function initializeDatabase(db: Database.Database, options: { seedAdmin?:
   }
 }
 
+function ensureResourceSecondaryColumns(db: Database.Database) {
+  const columns = db.prepare("PRAGMA table_info(resources)").all() as { name: string }[];
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has("secondary_embed_url")) {
+    db.prepare("ALTER TABLE resources ADD COLUMN secondary_embed_url TEXT NOT NULL DEFAULT ''").run();
+  }
+
+  if (!columnNames.has("secondary_direct_url")) {
+    db.prepare("ALTER TABLE resources ADD COLUMN secondary_direct_url TEXT NOT NULL DEFAULT ''").run();
+  }
+}
+
 function seedResources(db: Database.Database) {
   const insertResource = db.prepare(`
     INSERT INTO resources (
-      id, label, description, embed_url, direct_url, icon, enabled, kind, order_index
+      id, label, description, embed_url, direct_url, secondary_embed_url, secondary_direct_url, icon, enabled, kind, order_index
     )
     VALUES (
-      @id, @label, @description, @embed_url, @direct_url, @icon, @enabled, @kind, @order_index
+      @id, @label, @description, @embed_url, @direct_url, @secondary_embed_url, @secondary_direct_url, @icon, @enabled, @kind, @order_index
     )
     ON CONFLICT(id) DO NOTHING
   `);
@@ -150,6 +168,8 @@ function seedResources(db: Database.Database) {
         "https://airtable.com/embed/appYZtMb3u96lIGpk/shrcaORyqFY29lGl7/tblWOL7fHiQhNtN2U",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shrcaORyqFY29lGl7/tblWOL7fHiQhNtN2U",
+      secondary_embed_url: "",
+      secondary_direct_url: "",
       icon: "tasks",
       enabled: 1,
       kind: "standard",
@@ -163,6 +183,8 @@ function seedResources(db: Database.Database) {
         "https://airtable.com/embed/appYZtMb3u96lIGpk/shra9klsZPwrQUA47/tbl6j0WsBvlJSXZEb",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shra9klsZPwrQUA47/tbl6j0WsBvlJSXZEb",
+      secondary_embed_url: "",
+      secondary_direct_url: "",
       icon: "projects",
       enabled: 1,
       kind: "standard",
@@ -174,6 +196,8 @@ function seedResources(db: Database.Database) {
       description: "Vue personnelle à configurer",
       embed_url: "",
       direct_url: "",
+      secondary_embed_url: "",
+      secondary_direct_url: "",
       icon: "personal" as DashboardIcon,
       enabled: 1 as const,
       kind: "personal" as const,
@@ -218,11 +242,14 @@ function syncPersonalViewSeeds(db: Database.Database) {
         description = @description,
         embed_url = @embed_url,
         direct_url = @direct_url,
+        secondary_embed_url = @secondary_embed_url,
+        secondary_direct_url = @secondary_direct_url,
         updated_at = datetime('now')
     WHERE id = @id
       AND (
         embed_url = ''
         OR direct_url = @legacy_direct_url
+        OR (@sync_secondary = 1 AND secondary_direct_url = '')
         OR label LIKE 'Employé %'
         OR label LIKE 'EmployÃ© %'
       )
@@ -235,6 +262,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       description: "Vue personnelle",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shrkqSENufcIBpl16",
+      secondary_direct_url: "",
+      sync_secondary: 0,
       legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide"
     },
@@ -244,6 +273,9 @@ function syncPersonalViewSeeds(db: Database.Database) {
       description: "Vue personnelle",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi",
+      secondary_direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/shr2z8VpQMOjXf3TQ",
+      sync_secondary: 1,
       legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbz6tBrFiDAVTUI?blocks=hide"
     },
@@ -253,6 +285,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       description: "Vue personnelle",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shrtIR5kWN8iv7XL3",
+      secondary_direct_url: "",
+      sync_secondary: 0,
       legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwXHv7UmBCRDWSZM?blocks=hide"
     },
@@ -262,6 +296,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       description: "Vue personnelle",
       direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/shrsJJk5uNp2eNMpB",
+      secondary_direct_url: "",
+      sync_secondary: 0,
       legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbD9Q3oQ0uZHNSe?blocks=hide"
     }
@@ -270,7 +306,10 @@ function syncPersonalViewSeeds(db: Database.Database) {
   for (const view of personalViews) {
     updateResource.run({
       ...view,
-      embed_url: toAirtableEmbedUrl(view.direct_url)
+      embed_url: toAirtableEmbedUrl(view.direct_url),
+      secondary_embed_url: view.secondary_direct_url
+        ? toAirtableEmbedUrl(view.secondary_direct_url)
+        : ""
     });
   }
 }

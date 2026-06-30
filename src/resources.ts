@@ -16,6 +16,8 @@ export type DashboardResource = {
   description?: string;
   embedUrl: string;
   directUrl: string;
+  secondaryEmbedUrl?: string;
+  secondaryDirectUrl?: string;
   icon: DashboardIcon;
   enabled: boolean;
   kind: DashboardResourceKind;

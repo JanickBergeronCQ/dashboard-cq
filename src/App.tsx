@@ -7,6 +7,7 @@ import {
   LogOut,
   Settings,
   ShieldCheck,
+  Trash2,
   UserRound,
   UsersRound
 } from "lucide-react";
@@ -141,20 +142,44 @@ function ConsultationPanel({
       <div className="embed-shell">
         {cachedResources.map((resource) => {
           const isActive = resource.id === activeResource.id;
-          const iframeTitle = `${resource.label} Airtable read-only view`;
+          const frameSources =
+            resource.secondaryEmbedUrl && !isPlaceholderUrl(resource.secondaryEmbedUrl)
+              ? [
+                  {
+                    id: `${resource.id}-secondary`,
+                    src: resource.secondaryEmbedUrl,
+                    title: `${resource.label} Airtable kanban view`
+                  },
+                  {
+                    id: `${resource.id}-primary`,
+                    src: resource.embedUrl,
+                    title: `${resource.label} Airtable personal view`
+                  }
+                ]
+              : [
+                  {
+                    id: `${resource.id}-primary`,
+                    src: resource.embedUrl,
+                    title: `${resource.label} Airtable read-only view`
+                  }
+                ];
 
           return (
             <div
               key={resource.id}
-              className="cached-view"
+              className={`cached-view ${frameSources.length > 1 ? "cached-view--split" : ""}`}
               data-active={isActive}
               aria-hidden={!isActive}
             >
-              <iframe
-                src={resource.embedUrl}
-                title={iframeTitle}
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+              {frameSources.map((frame) => (
+                <div key={frame.id} className="iframe-pane">
+                  <iframe
+                    src={frame.src}
+                    title={frame.title}
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+              ))}
             </div>
           );
         })}
@@ -443,6 +468,7 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
   const [notice, setNotice] = useState("");
   const [creatingUser, setCreatingUser] = useState(false);
   const [creatingRole, setCreatingRole] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
   async function refresh() {
     const [usersResult, rolesResult, resourcesResult] = await Promise.all([
@@ -530,6 +556,28 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
       setNotice(`Utilisateur ${user.displayName} mis à jour.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "La mise à jour de l'utilisateur a échoué.");
+    }
+  }
+
+  async function deleteUser(user: AdminUser) {
+    const confirmed = window.confirm(`Supprimer l'accès de ${user.displayName}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setNotice("");
+    setDeletingUserId(user.id);
+
+    try {
+      await api("admin/users/" + user.id, { method: "DELETE" });
+      await refresh();
+      setNotice(`Accès supprimé pour ${user.displayName}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "La suppression de l'utilisateur a échoué.");
+    } finally {
+      setDeletingUserId(null);
     }
   }
 
@@ -672,6 +720,15 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
                   onClick={() => updateUser(adminUser, { mustChangePassword: true })}
                 >
                   Forcer reset
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  disabled={deletingUserId === adminUser.id}
+                  onClick={() => deleteUser(adminUser)}
+                >
+                  <Trash2 aria-hidden="true" size={16} />
+                  {deletingUserId === adminUser.id ? "Suppression..." : "Supprimer"}
                 </button>
               </div>
               <div className="checkbox-row">
