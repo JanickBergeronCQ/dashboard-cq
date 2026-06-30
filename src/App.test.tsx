@@ -57,6 +57,18 @@ const resources: DashboardResourcesResponse = {
   ]
 };
 
+const adminSnapshot = {
+  users: [
+    {
+      ...admin,
+      active: true,
+      roleIds: [1]
+    }
+  ],
+  roles: [{ id: 1, name: "Dashboard Admin", description: "Full access" }],
+  resources: resources.resources.map((resource) => ({ ...resource, roleIds: [1] }))
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -94,6 +106,35 @@ function mockApi({
 
       if (url === "api/auth/login" && options?.method === "POST") {
         return jsonResponse({ user });
+      }
+
+      if (url === "api/admin/users" && !options?.method) {
+        return jsonResponse({ users: adminSnapshot.users });
+      }
+
+      if (url === "api/admin/users" && options?.method === "POST") {
+        return jsonResponse({
+          users: [
+            ...adminSnapshot.users,
+            {
+              id: 2,
+              email: "new.employee@example.com",
+              displayName: "New Employee",
+              isAdmin: false,
+              mustChangePassword: true,
+              active: true,
+              roleIds: []
+            }
+          ]
+        });
+      }
+
+      if (url === "api/admin/roles") {
+        return jsonResponse({ roles: adminSnapshot.roles });
+      }
+
+      if (url === "api/admin/resources") {
+        return jsonResponse({ resources: adminSnapshot.resources, roles: adminSnapshot.roles });
       }
 
       return jsonResponse({ error: "Unexpected request: " + url }, { status: 500 });
@@ -175,5 +216,22 @@ describe("Employee dashboard", () => {
       expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
       expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
     });
+  });
+
+  it("creates user access with visible success feedback", async () => {
+    const testUser = userEvent.setup();
+    mockApi({ currentUser: admin });
+
+    render(<App />);
+
+    await testUser.click(await screen.findByRole("button", { name: "Admin" }));
+    await screen.findByRole("heading", { name: "Créer un accès" });
+
+    await testUser.type(screen.getByPlaceholderText("Courriel"), "new.employee@example.com");
+    await testUser.type(screen.getByPlaceholderText("Nom affiché"), "New Employee");
+    await testUser.type(screen.getByPlaceholderText("Mot de passe temporaire"), "Temporary123!");
+    await testUser.click(screen.getByRole("button", { name: "Créer" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Accès créé pour New Employee.");
   });
 });

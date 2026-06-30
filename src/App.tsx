@@ -459,6 +459,9 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
   });
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [creatingRole, setCreatingRole] = useState(false);
 
   async function refresh() {
     const [usersResult, rolesResult, resourcesResult] = await Promise.all([
@@ -480,47 +483,89 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
   async function createUser(event: FormEvent) {
     event.preventDefault();
     setError("");
-    await api("admin/users", {
-      method: "POST",
-      body: JSON.stringify({ ...userForm, roleIds: [] })
-    });
-    setUserForm({ email: "", displayName: "", temporaryPassword: "", isAdmin: false });
-    await refresh();
+    setNotice("");
+
+    if (userForm.temporaryPassword.length < 10) {
+      setError("Le mot de passe temporaire doit contenir au moins 10 caractères.");
+      return;
+    }
+
+    setCreatingUser(true);
+
+    try {
+      await api("admin/users", {
+        method: "POST",
+        body: JSON.stringify({ ...userForm, roleIds: [] })
+      });
+      setUserForm({ email: "", displayName: "", temporaryPassword: "", isAdmin: false });
+      await refresh();
+      setNotice(`Accès créé pour ${userForm.displayName || userForm.email}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "La création de l'accès a échoué.");
+    } finally {
+      setCreatingUser(false);
+    }
   }
 
   async function createRole(event: FormEvent) {
     event.preventDefault();
     setError("");
-    await api("admin/roles", {
-      method: "POST",
-      body: JSON.stringify(roleForm)
-    });
-    setRoleForm({ name: "", description: "" });
-    await refresh();
+    setNotice("");
+    setCreatingRole(true);
+
+    try {
+      await api("admin/roles", {
+        method: "POST",
+        body: JSON.stringify(roleForm)
+      });
+      setRoleForm({ name: "", description: "" });
+      await refresh();
+      setNotice(`Rôle ${roleForm.name} ajouté.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "La création du rôle a échoué.");
+    } finally {
+      setCreatingRole(false);
+    }
   }
 
   async function updateUser(user: AdminUser, patch: Partial<AdminUser>) {
-    await api("admin/users/" + user.id, {
-      method: "PATCH",
-      body: JSON.stringify({
-        displayName: patch.displayName,
-        active: patch.active,
-        mustChangePassword: patch.mustChangePassword,
-        isAdmin: patch.isAdmin,
-        roleIds: patch.roleIds
-      })
-    });
-    await refresh();
-    const me = await api<{ user: CurrentUser }>("auth/me");
-    onUserChange(me.user);
+    setError("");
+    setNotice("");
+
+    try {
+      await api("admin/users/" + user.id, {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: patch.displayName,
+          active: patch.active,
+          mustChangePassword: patch.mustChangePassword,
+          isAdmin: patch.isAdmin,
+          roleIds: patch.roleIds
+        })
+      });
+      await refresh();
+      const me = await api<{ user: CurrentUser }>("auth/me");
+      onUserChange(me.user);
+      setNotice(`Utilisateur ${user.displayName} mis à jour.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "La mise à jour de l'utilisateur a échoué.");
+    }
   }
 
   async function updateResourceRoles(resource: AdminResource, roleIds: number[]) {
-    await api("admin/permissions", {
-      method: "POST",
-      body: JSON.stringify({ resourceId: resource.id, roleIds })
-    });
-    await refresh();
+    setError("");
+    setNotice("");
+
+    try {
+      await api("admin/permissions", {
+        method: "POST",
+        body: JSON.stringify({ resourceId: resource.id, roleIds })
+      });
+      await refresh();
+      setNotice(`Accès mis à jour pour ${resource.label}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "La mise à jour des accès a échoué.");
+    }
   }
 
   if (!snapshot) {
@@ -529,24 +574,38 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
 
   return (
     <main className="admin-panel">
-      {error ? <p className="form-error">{error}</p> : null}
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p className="form-success" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       <section>
         <h2>Créer un accès</h2>
         <form className="admin-form" onSubmit={createUser}>
           <input
             placeholder="Courriel"
+            type="email"
+            required
             value={userForm.email}
             onChange={(event) => setUserForm({ ...userForm, email: event.target.value })}
           />
           <input
             placeholder="Nom affiché"
+            required
             value={userForm.displayName}
             onChange={(event) => setUserForm({ ...userForm, displayName: event.target.value })}
           />
           <input
             placeholder="Mot de passe temporaire"
             type="password"
+            required
+            minLength={10}
             value={userForm.temporaryPassword}
             onChange={(event) =>
               setUserForm({ ...userForm, temporaryPassword: event.target.value })
@@ -560,7 +619,9 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
             />
             Admin
           </label>
-          <button type="submit">Créer</button>
+          <button type="submit" disabled={creatingUser}>
+            {creatingUser ? "Création..." : "Créer"}
+          </button>
         </form>
       </section>
 
@@ -569,6 +630,7 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
         <form className="admin-form" onSubmit={createRole}>
           <input
             placeholder="Nom du rôle"
+            required
             value={roleForm.name}
             onChange={(event) => setRoleForm({ ...roleForm, name: event.target.value })}
           />
@@ -577,7 +639,9 @@ function AdminPanel({ onUserChange }: { onUserChange: (user: CurrentUser) => voi
             value={roleForm.description}
             onChange={(event) => setRoleForm({ ...roleForm, description: event.target.value })}
           />
-          <button type="submit">Ajouter</button>
+          <button type="submit" disabled={creatingRole}>
+            {creatingRole ? "Ajout..." : "Ajouter"}
+          </button>
         </form>
         <div className="admin-grid">
           {snapshot.roles.map((role) => (

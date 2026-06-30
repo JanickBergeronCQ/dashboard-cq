@@ -131,14 +131,24 @@ input:focus-visible {
   opacity: 0.66;
 }
 
-.form-error {
+.form-error,
+.form-success {
   padding: 10px 12px;
-  color: #8f1d1d;
   font-size: 14px;
   font-weight: 650;
+  border-radius: 6px;
+}
+
+.form-error {
+  color: #8f1d1d;
   background: #fff0f0;
   border: 1px solid #f2c6c6;
-  border-radius: 6px;
+}
+
+.form-success {
+  color: #126147;
+  background: #effaf5;
+  border: 1px solid #bde8d2;
 }
 
 .app-header {
@@ -367,6 +377,26 @@ h1 {
 
 .admin-form input {
   min-width: 190px;
+}
+
+.admin-form .check-label,
+.admin-card .check-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-form input[type="checkbox"],
+.admin-card input[type="checkbox"],
+.checkbox-row input[type="checkbox"],
+.check-label input[type="checkbox"] {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  border-radius: 3px;
 }
 
 .admin-grid,

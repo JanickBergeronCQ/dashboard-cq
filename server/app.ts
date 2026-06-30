@@ -157,28 +157,38 @@ export function createApp(options: AppOptions) {
     const parsed = createUserSchema.safeParse(req.body);
 
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid user payload." });
+      return res.status(400).json({
+        error: "Vérifiez le courriel, le nom et le mot de passe temporaire de 10 caractères minimum."
+      });
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO users (
-          email, display_name, password_hash, active, must_change_password, is_admin
-        ) VALUES (?, ?, ?, 1, 1, ?)`
-      )
-      .run(
-        parsed.data.email,
-        parsed.data.displayName,
-        bcrypt.hashSync(parsed.data.temporaryPassword, 12),
-        parsed.data.isAdmin ? 1 : 0
-      );
+    try {
+      const result = db
+        .prepare(
+          `INSERT INTO users (
+            email, display_name, password_hash, active, must_change_password, is_admin
+          ) VALUES (?, ?, ?, 1, 1, ?)`
+        )
+        .run(
+          parsed.data.email,
+          parsed.data.displayName,
+          bcrypt.hashSync(parsed.data.temporaryPassword, 12),
+          parsed.data.isAdmin ? 1 : 0
+        );
 
-    replaceUserRoles(db, Number(result.lastInsertRowid), parsed.data.roleIds);
-    audit(db, req.user!.id, "create_user", "user", String(result.lastInsertRowid), {
-      email: parsed.data.email
-    });
+      replaceUserRoles(db, Number(result.lastInsertRowid), parsed.data.roleIds);
+      audit(db, req.user!.id, "create_user", "user", String(result.lastInsertRowid), {
+        email: parsed.data.email
+      });
 
-    return res.status(201).json({ users: listUsers(db) });
+      return res.status(201).json({ users: listUsers(db) });
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("UNIQUE")) {
+        return res.status(409).json({ error: "Un accès existe déjà pour ce courriel." });
+      }
+
+      throw err;
+    }
   });
 
   app.patch("/api/admin/users/:id", authenticate(db), requirePasswordReady, requireAdmin, (req: RequestWithUser, res) => {
