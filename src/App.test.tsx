@@ -241,6 +241,7 @@ describe("Employee dashboard", () => {
     render(<App />);
 
     expect(await screen.findByText("Chargement des vues...")).toBeInTheDocument();
+    expect(document.querySelector(".loading-spinner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Employee" })).toBeInTheDocument();
 
     resolveResources(

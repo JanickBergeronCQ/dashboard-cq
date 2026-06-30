@@ -126,8 +126,9 @@ function ConsultationPanel({
   if (loading) {
     return (
       <main className="content-panel">
-        <section className="empty-embed" aria-live="polite">
+        <section className="empty-embed empty-embed--loading" aria-live="polite">
           <div>
+            <span className="loading-spinner" aria-hidden="true" />
             <p className="empty-kicker">Dashboard</p>
             <h2>Chargement des vues</h2>
             <p>La page est prête. Les vues Airtable se chargent en arrière-plan.</p>
@@ -435,7 +436,10 @@ function Dashboard({
         </div>
 
         {!showAdmin && loadingResources ? (
-          <div className="resource-nav admin-title">Chargement des vues...</div>
+          <div className="resource-nav admin-title loading-title" role="status">
+            <span className="loading-spinner loading-spinner--small" aria-hidden="true" />
+            Chargement des vues...
+          </div>
         ) : !showAdmin ? (
           <nav className="resource-nav" aria-label="Airtable resources">
             {topTabs.map((resource) => (
