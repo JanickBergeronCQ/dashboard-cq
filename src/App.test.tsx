@@ -194,27 +194,29 @@ describe("Employee dashboard", () => {
     expect(screen.queryByRole("button", { name: "Tâches Opérationnels" })).not.toBeInTheDocument();
   });
 
-  it("keeps visited Airtable views mounted while switching the active one", async () => {
+  it("preloads accessible Airtable views and switches the active one", async () => {
     const testUser = userEvent.setup();
     mockApi({ currentUser: admin });
 
     render(<App />);
 
-    await testUser.click(await screen.findByRole("button", { name: "Avancement de Projets" }));
+    await screen.findByRole("button", { name: "Avancement de Projets" });
 
     const firstFrame = screen.getByTitle("Tâches Opérationnels Airtable read-only view");
     const secondFrame = screen.getByTitle("Avancement de Projets Airtable read-only view");
 
     expect(firstFrame).toHaveAttribute("src", resources.resources[0].embedUrl);
     expect(secondFrame).toHaveAttribute("src", resources.resources[1].embedUrl);
-    expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
-    expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
+    expect(firstFrame).not.toHaveAttribute("loading", "lazy");
+    expect(secondFrame).not.toHaveAttribute("loading", "lazy");
+    expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
+    expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
 
-    await testUser.click(screen.getByRole("button", { name: "Tâches Opérationnels" }));
+    await testUser.click(screen.getByRole("button", { name: "Avancement de Projets" }));
 
     await waitFor(() => {
-      expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
-      expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
+      expect(firstFrame.closest(".cached-view")).toHaveAttribute("data-active", "false");
+      expect(secondFrame.closest(".cached-view")).toHaveAttribute("data-active", "true");
     });
   });
 

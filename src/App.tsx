@@ -85,10 +85,6 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function addUniqueId(ids: string[], id: string) {
-  return ids.includes(id) ? ids : [...ids, id];
-}
-
 function ResourceTab({
   resource,
   selected,
@@ -157,7 +153,6 @@ function ConsultationPanel({
               <iframe
                 src={resource.embedUrl}
                 title={iframeTitle}
-                loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
@@ -298,8 +293,6 @@ function Dashboard({
   const [loadingResources, setLoadingResources] = useState(true);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   const [selectedPersonalViewId, setSelectedPersonalViewId] = useState<string | null>(null);
-  const [visitedResourceIds, setVisitedResourceIds] = useState<string[]>([]);
-  const [visitedPersonalViewIds, setVisitedPersonalViewIds] = useState<string[]>([]);
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
@@ -313,8 +306,6 @@ function Dashboard({
         const firstPersonalView = result.personalViews[0] ?? null;
         setSelectedResourceId((current) => current ?? firstResource?.id ?? null);
         setSelectedPersonalViewId((current) => current ?? firstPersonalView?.id ?? null);
-        setVisitedResourceIds(firstResource ? [firstResource.id] : []);
-        setVisitedPersonalViewIds(firstPersonalView ? [firstPersonalView.id] : []);
       })
       .finally(() => {
         if (!ignore) setLoadingResources(false);
@@ -352,27 +343,16 @@ function Dashboard({
     return personalGroup ? [...topResources, personalGroup] : topResources;
   }, [personalViews.length, topResources]);
   const cachedResources = [
-    ...topResources.filter(
-      (resource) => visitedResourceIds.includes(resource.id) && !isPlaceholderUrl(resource.embedUrl)
-    ),
-    ...personalViews.filter(
-      (resource) =>
-        visitedPersonalViewIds.includes(resource.id) && !isPlaceholderUrl(resource.embedUrl)
-    )
+    ...topResources.filter((resource) => !isPlaceholderUrl(resource.embedUrl)),
+    ...personalViews.filter((resource) => !isPlaceholderUrl(resource.embedUrl))
   ];
 
   function handleResourceSelect(resource: DashboardResource) {
     setSelectedResourceId(resource.id);
-    setVisitedResourceIds((currentIds) => addUniqueId(currentIds, resource.id));
-
-    if (resource.id === personalGroupId && selectedPersonalView) {
-      setVisitedPersonalViewIds((currentIds) => addUniqueId(currentIds, selectedPersonalView.id));
-    }
   }
 
   function handlePersonalViewSelect(resource: DashboardResource) {
     setSelectedPersonalViewId(resource.id);
-    setVisitedPersonalViewIds((currentIds) => addUniqueId(currentIds, resource.id));
   }
 
   async function handleLogout() {
