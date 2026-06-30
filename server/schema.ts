@@ -222,6 +222,7 @@ function syncPersonalViewSeeds(db: Database.Database) {
     WHERE id = @id
       AND (
         embed_url = ''
+        OR direct_url = @legacy_direct_url
         OR label LIKE 'Employé %'
         OR label LIKE 'EmployÃ© %'
       )
@@ -233,6 +234,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       label: "Jean-François",
       description: "Vue personnelle",
       direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/shrkqSENufcIBpl16",
+      legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide"
     },
     {
@@ -240,6 +243,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       label: "Simon",
       description: "Vue personnelle",
       direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi",
+      legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbz6tBrFiDAVTUI?blocks=hide"
     },
     {
@@ -247,6 +252,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       label: "Pierre-Émile",
       description: "Vue personnelle",
       direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/shrtIR5kWN8iv7XL3",
+      legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwXHv7UmBCRDWSZM?blocks=hide"
     },
     {
@@ -254,6 +261,8 @@ function syncPersonalViewSeeds(db: Database.Database) {
       label: "Pier-Alexandre",
       description: "Vue personnelle",
       direct_url:
+        "https://airtable.com/appYZtMb3u96lIGpk/shrsJJk5uNp2eNMpB",
+      legacy_direct_url:
         "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbD9Q3oQ0uZHNSe?blocks=hide"
     }
   ];

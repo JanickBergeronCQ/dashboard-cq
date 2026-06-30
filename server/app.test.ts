@@ -106,13 +106,29 @@ describe("resource permissions", () => {
           id: "employee-personal-1",
           label: "Jean-François",
           embed_url:
-            "https://airtable.com/embed/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide",
-          direct_url:
-            "https://airtable.com/appYZtMb3u96lIGpk/tbl6j0WsBvlJSXZEb/viwbVf7pn6mSb13pI?blocks=hide"
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/shrkqSENufcIBpl16",
+          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shrkqSENufcIBpl16"
+        }),
+        expect.objectContaining({
+          id: "employee-personal-2",
+          label: "Simon",
+          embed_url:
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi",
+          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shr0h3jidVa7k9xTi"
+        }),
+        expect.objectContaining({
+          id: "employee-personal-3",
+          label: "Pierre-Émile",
+          embed_url:
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/shrtIR5kWN8iv7XL3",
+          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shrtIR5kWN8iv7XL3"
         }),
         expect.objectContaining({
           id: "employee-personal-4",
-          label: "Pier-Alexandre"
+          label: "Pier-Alexandre",
+          embed_url:
+            "https://airtable.com/embed/appYZtMb3u96lIGpk/shrsJJk5uNp2eNMpB",
+          direct_url: "https://airtable.com/appYZtMb3u96lIGpk/shrsJJk5uNp2eNMpB"
         })
       ])
     );
